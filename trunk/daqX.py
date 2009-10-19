@@ -1,5 +1,6 @@
 import ctypes as ct
 from ctypes import wintypes as wt
+from daqxh import *
 
 #initialize Daqx.dll
 daq = ct.windll.daqx
@@ -9,7 +10,7 @@ class deviceProps(ct.Structure):
                 ("basePortAddress", wt.DWORD),
                 ("dmaChannel", wt.DWORD),
                 ("protocol", wt.DWORD),
-                ("alias", ct.c_char_p),
+                ("alias", ct.c_char*64),
                 ("maxAdChannels", wt.DWORD),
                 ("maxDaChannels", wt.DWORD),
                 ("maxDigInputBits", wt.DWORD),
@@ -30,46 +31,31 @@ class deviceProps(ct.Structure):
                 ("daMaxFreq", ct.c_float)]
 
 #Device Initialization Functions
-    
-def daqOpen(deviceName):
-    """Open the appropriate daqboard"""
 
-    deviceNamepnt = ct.c_char_p(deviceName)
-    daq.daqOpen(deviceNamepnt)
-
-def daqGetDeviceCount():
+def GetDeviceCount():
     """Returns the number of currently configured devices"""
 
     deviceCount = ct.c_int(0)
     deviceCountpnt = ct.pointer(deviceCount)
     daq.daqGetDeviceCount(deviceCountpnt)
+    
     return deviceCount.value
 
-def daqGetDeviceList():
+def GetDeviceList():
     """Returns a list of currently configured device names"""
 
-    string = ct.c_char_p('')
-    count = ct.c_int(0)
-    countpnt = ct.pointer(count)
-    daq.daqGetDeviceList(string, countpnt)
+    devices = []
+    count = GetDeviceCount()
+    countpnt = ct.pointer(ct.c_int(count))
+    devlist = (ct.c_char_p * count)()
+    daq.daqGetDeviceList(devlist, countpnt)
 
-    return string.value
+    for i in devlist:
+        devices.append(i)
+        
+    return devices
 
-def daqClose(handle):
-    """Used to close a device"""
-
-    daq.daqClose(handle)
-
-def daqOnline(handle):
-    """Determines if a device is online"""
-
-    online = ct.c_bool(False)
-    onlinepnt = ct.pointer(online)
-    daq.daqOnline(handle, onlinepnt)
-
-    return online.value
-
-def daqGetDeviceProperties(deviceName):
+def GetDeviceProperties(deviceName):
     """Returns the properties for a specified device"""
 
     deviceNamepnt = ct.c_char_p(deviceName)
@@ -77,11 +63,11 @@ def daqGetDeviceProperties(deviceName):
     devicePropspnt = ct.pointer(devProps)
     daq.daqGetDeviceProperties(deviceNamepnt,devicePropspnt)
 
-    print(devProps)
+    return devProps
     
 #Error Handler Functions
 
-def daqDefaultErrorHandler(handle):
+def DefaultErrorHandler(handle):
     """Displays an error message and then exits the application program"""
     
     errCode = ct.c_int
@@ -89,7 +75,7 @@ def daqDefaultErrorHandler(handle):
 
     return errCode.value
 
-def daqFormatError(errorNum):
+def FormatError(errorNum):
     """Returns the text-string equivalent for the
         specified error condition code"""
 
@@ -98,7 +84,7 @@ def daqFormatError(errorNum):
 
     return msg.value
 
-def daqGetLastError(handle, err):
+def GetLastError(handle, err):
     """Retrieves the last error condition code registered by the driver"""
 
     errCode = ct.c_int(err)
@@ -106,20 +92,20 @@ def daqGetLastError(handle, err):
 
     return errCode.value
 
-def daqProcessError(handle, err):
+def ProcessError(handle, err):
     """Initiates an error for processing by the driver"""
 
     errCode = ct.c_int(err)
     daq.daqGetLastError(handle, errCode)
 
-def daqSetDefaultErrorHandler(handler):
+def SetDefaultErrorHandler(handler):
     """Sets the driver to use the default error handler specified
         for all devices"""
 
     handlerpnt = ct.POINTER(handler)
     daq.daqSetDefaultErrorHandler(handlerpnt)
 
-def daqSetErrorHandler(handle, handler):
+def SetErrorHandler(handle, handler):
     """Specifies the routine to call when an error occurs in any function
         for the specified device"""
 
@@ -129,7 +115,7 @@ def daqSetErrorHandler(handle, handler):
 def GetDriverVersion():
     """Retrieves the revision level of the driver currently in use"""
 
-    version = ct.c_float
+    version = wt.DWORD(1)
     pversion = ct.pointer(version)
     daq.daqGetDriverVersion(pversion)
 
@@ -155,6 +141,20 @@ class daqDevice():
         self.deviceName = deviceName   
         pdeviceName = ct.c_char_p(deviceName)
         self.handle = daq.daqOpen(pdeviceName)
+
+    def Online(self):
+        """Determines if a device is online"""
+
+        online = ct.c_bool(False)
+        onlinepnt = ct.pointer(online)
+        daq.daqOnline(self.handle, onlinepnt)
+
+        return online.value
+
+    def Close(self):
+        """Used to close a device"""
+
+        daq.daqClose(self.handle) 
         
     #Event Handling Functions
 
@@ -176,15 +176,48 @@ class daqDevice():
         """Retrieves hardware information for the specified device"""
 
         chan = ct.c_int(chan)
-        info = c_int
+        info = ct.c_int
         pinfo = pointer(info)
         daq.daqGetInfo(self.handle, chan, whichInfo, pinfo)
 
         return info.value
 
-    
-        
+    #Custom ADC Aquisition Functions
 
-        
+    def AdcSetScan(self, channels, gains, flags):
+        """Configures an aquisition scan group consisting of multiple channels"""
 
-    
+        gains = ofKeys(bipolarGains, gains)
+        flags = ofKeys(daqAdcFlag, gains)
+        chan_array = ct.ARRAY(wt.DWORD, len(channels))
+        pchan_array = ct.pointer(chan_array(*channels))
+        gain_array = ct.ARRAY(wt.DWORD, len(gains))
+        pgain_array = ct.pointer(gain_array(*gains))
+        flag_array = ct.ARRAY(wt.ARRAY, len(flags))
+        pflag_array = ct.pointer(flag_array(*flags))
+        
+        daq.daqAdcSetScan(self.handle, pchan_array, pgain_array, pflag_array,
+                          wt.DWORD(len(channels)))
+
+    def AdcGetScan(self):
+        """Reads the current scan group, which consists of all configured
+            channels"""
+        channels, gains, flags = []
+        chan_array = ct.ARRAY(wt.DWORD, 512)
+        pchan_array = ct.pointer(chan_array(*channels))
+        gain_array = ct.ARRAY(wt.DWORD, 512)
+        pgain_array = ct.pointer(gain_array(*gains))
+        flag_array = ct.ARRAY(wt.ARRAY, 512)
+        pflag_array = ct.pointer(flag_array(*flags))
+        chanCount = ct.c_int(0)
+        pchanCount = ct.pointer(chanCount)
+
+        daq.daqAdcSetScan(self.handle, pchan_array, pgain_array, pflag_array,
+                            pchanCount)                          
+
+        gainVals = ofValues(bipolarGains, gains)
+        flagVals = ofValues(daqAdcFlag, flags)
+        vals = {'Channels' : channels, 'Gains' : gainVals,
+                'Flags' : flagVals, 'Channelcount' : chanCount}
+        return vals
+
