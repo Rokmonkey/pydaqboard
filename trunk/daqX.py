@@ -10,7 +10,7 @@ class deviceProps(ct.Structure):
                 ("basePortAddress", wt.DWORD),
                 ("dmaChannel", wt.DWORD),
                 ("protocol", wt.DWORD),
-                ("alias", ct.c_char*64),
+                ("alias", ct.c_char_p),
                 ("maxAdChannels", wt.DWORD),
                 ("maxDaChannels", wt.DWORD),
                 ("maxDigInputBits", wt.DWORD),
@@ -30,6 +30,9 @@ class deviceProps(ct.Structure):
                 ("daMinFreq", ct.c_float),
                 ("daMaxFreq", ct.c_float)]
 
+class daqDeviceListT(ct.Structure):
+    _fields_ = [("devicename", ct.c_char * 64)]
+
 #Device Initialization Functions
 
 def GetDeviceCount():
@@ -47,23 +50,15 @@ def GetDeviceList():
     devices = []
     count = GetDeviceCount()
     countpnt = ct.pointer(ct.c_int(count))
-    devlist = (ct.c_char_p * count)()
+    devlist = (daqDeviceListT*count)()
+    
     daq.daqGetDeviceList(devlist, countpnt)
-
+    
     for i in devlist:
-        devices.append(i)
+        devices.append(i.devicename)
         
     return devices
 
-def GetDeviceProperties(deviceName):
-    """Returns the properties for a specified device"""
-
-    deviceNamepnt = ct.c_char_p(deviceName)
-    devProps = deviceProps()
-    devicePropspnt = ct.pointer(devProps)
-    daq.daqGetDeviceProperties(deviceNamepnt,devicePropspnt)
-
-    return devProps
     
 #Error Handler Functions
 
@@ -106,7 +101,7 @@ def SetDefaultErrorHandler(handler):
     daq.daqSetDefaultErrorHandler(handlerpnt)
 
 def SetErrorHandler(handle, handler):
-    """Specifies the routine to call when an error occurs in any function
+    """Specifies the routine to call when an error occurs in any function\
         for the specified device"""
 
     handlepnt = ct.POINTER(handler)
@@ -154,7 +149,29 @@ class daqDevice():
     def Close(self):
         """Used to close a device"""
 
-        daq.daqClose(self.handle) 
+        daq.daqClose(self.handle)
+
+    def GetDeviceProperties(self):
+        """Returns the properties for a specified device"""
+
+        properties = {}
+    
+        deviceNamepnt = ct.c_char_p(self.deviceName)
+        devProps = deviceProps()
+        devicePropspnt = ct.pointer(devProps)
+        daq.daqGetDeviceProperties(deviceNamepnt,devicePropspnt)
+
+        for i in dir(devProps):
+            if not i.startswith('_'):
+                val = getattr(devProps, i)
+                if i == 'deviceType':
+                    val = ofValues(DaqHardwareVersion,[int(val)])
+                if i == 'protocol':
+                    val = ofValues(DaqProtocol,[int(val)])
+                properties[i]=val
+
+            
+        return properties
         
     #Event Handling Functions
 
@@ -176,8 +193,8 @@ class daqDevice():
         """Retrieves hardware information for the specified device"""
 
         chan = ct.c_int(chan)
-        info = ct.c_int
-        pinfo = pointer(info)
+        info = ct.c_int(0)
+        pinfo = ct.pointer(info)
         daq.daqGetInfo(self.handle, chan, whichInfo, pinfo)
 
         return info.value
@@ -188,7 +205,7 @@ class daqDevice():
         """Configures an aquisition scan group consisting of multiple channels"""
 
         gains = ofKeys(bipolarGains, gains)
-        flags = ofKeys(daqAdcFlag, gains)
+        flags = ofKeys(daqAdcFlag, flags)
         chan_array = ct.ARRAY(wt.DWORD, len(channels))
         pchan_array = ct.pointer(chan_array(*channels))
         gain_array = ct.ARRAY(wt.DWORD, len(gains))
@@ -200,7 +217,7 @@ class daqDevice():
                           wt.DWORD(len(channels)))
 
     def AdcGetScan(self):
-        """Reads the current scan group, which consists of all configured
+        """Reads the current scan group, which consists of all configured\
             channels"""
         channels, gains, flags = []
         chan_array = ct.ARRAY(wt.DWORD, 512)
@@ -221,3 +238,19 @@ class daqDevice():
                 'Flags' : flagVals, 'Channelcount' : chanCount}
         return vals
 
+    #One-Step ADC functions
+
+    def AdcRd(self, chan, gain, flags):
+        """Takes a single reading from the given local A/D channel using a\
+            software trigger"""
+        flags = ofKeys(DaqAdcFlag, flags)
+        gain = bipolarGains[gain]
+        flag_array = ct.ARRAY(wt.ARRAY, len(flags))
+        pflag_array = ct.pointer(flag_array(*flags))
+        sample = wt.DWORD(0)
+        psample = ct.pointer(sample)
+
+        daq.daqAdcRd(self.handle, wt.DWORD(chan), psample, wt.DWORD(gain),
+                     pflag_array)
+
+        return sample.value

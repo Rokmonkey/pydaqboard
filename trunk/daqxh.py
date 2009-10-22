@@ -6,9 +6,14 @@ def ofKeys(dictionary, keys):
     return values
 
 def ofValues(dictionary, values):
+    reverseDict = {}
     keys = []
+    
+    for k,v in dictionary.iteritems():
+        reverseDict[v]=k
+        
     for i in values:
-        keys.append(dictionary[i])
+        keys.append(reverseDict[i])
     return keys
 
 
@@ -154,3 +159,52 @@ DaqAdcFlag = {
    #WaveBook Internal Channel Flags */  
    'DafIgnoreType'        : 0x1000000,
    }
+
+DaqHardwareVersion = {
+    'DaqBook100'           : 0,
+    'DaqBook112'           : 1,
+    'DaqBook120'           : 2,
+    'DaqBook200'           : 3, #// DaqBook/200 or DaqBook/260
+    'DaqBook216'           : 4,
+    'DaqBoard100'          : 5,
+    'DaqBoard112'          : 6,
+    'DaqBoard200'          : 7,
+    'DaqBoard216'          : 8,
+    'Daq112'               : 9,
+    'Daq216'               : 10,
+    'WaveBook512'          : 11,
+    'WaveBook516'          : 12,
+    'TempBook66'           : 13,
+    'PersonalDaq56'        : 14,
+    'WaveBook516_250'      : 15,
+    'WaveBook512_10V'      : 16,
+    'DaqBoard2000'         : 17,
+    'DaqBoard2001'         : 18,
+    'DaqBoard2002'         : 19,
+    'DaqBoard2003'         : 20,
+    'DaqBoard2004'         : 21,
+    'DaqBoard2005'         : 22,
+    'DaqBook2000'          : 23,
+    'DaqBook2001'          : 24,
+    'DaqBook2002'          : 25,
+    'DaqBook2003'          : 26,
+    'DaqBook2004'          : 27,
+    'DaqBook2005'          : 28,
+    'WaveBook512A'         : 29,
+    'WaveBook516A'         : 30,
+}
+#Protocal Devinitsions
+DaqProtocol = {
+   'DaqProtocolNone'      : 0,    #/* Communications not established */
+   'DaqProtocol4'         : 1,    #/* Standard LPT Port 4-bit mode */
+   'DaqProtocol8'         : 2,    #/* Standard LPT Port 8-bit mode */
+   'DaqProtocolSMC666'    : 3,    #/* SMC 37C666 EPP mode */
+   'DaqProtocolFastEPP'   : 4,    #/* WBK20/21 Fast EPP mode */
+   'DaqProtocolECP'       : 5,    #/* Enhanced Capability Port */
+   'DaqProtocol8BitEPP'   : 6,    #/* 8-bit EPP mode */
+   'DaqProtocolISA'       : 100,  #/* ISA bus card DaqBoard 100/200 */
+   'DaqProtocolPcCard'    : 200,  #/* PCCard for Daq (PCMCIA) */
+   'DaqProtocolUSB'       : 300,  #/* USB protocol (PersonalDaq) */
+   'DaqProtocolPCI'       : 400,  #/* PCI bus card DaqBoard 2000 */
+   'DaqProtocolCPCI'      : 500,  #/* Compact PCI bus card DaqBoard 2000 */
+}
