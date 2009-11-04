@@ -3,10 +3,10 @@
 
 = Device Specific Functions =
 
-  *getDeviceCount
-  *getDeviceList
-  *getDriverVersion
-  *daqDevice
+  * getDeviceCount
+  * getDeviceList
+  * getDriverVersion
+  * daqDevice
 
 
 = Function Details =
@@ -36,4 +36,3 @@ Returns a list of strings of names of the currently installed devices.  The name
 *getDriverVersion()*
 
 Returns the current driver version of the Daq software.
-
