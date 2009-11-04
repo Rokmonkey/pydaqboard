@@ -1,0 +1,5 @@
+#Introduction to pydaqboard
+
+= Introduction =
+
+PyDaqBoard is a python API for IOTECH DaqBoards.  Currently it is written  more towards the DaqBoard/2000 series, however if you know a bit about python and Daq programming, you can easily modify it.
