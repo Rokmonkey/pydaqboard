@@ -16,7 +16,7 @@ runtime = 10
 #Input
 inputChan = 0
 inputGain = 'DgainX1' #No gain
-inputFlags = ['DafBipolar','DafUnsigned'] # -10.0 to 10.0 with no gain
+inputFlags = ['DafBipolar'] # -10.0 to 10.0 with no gain
 inputFreq = 2 #Twice per second
 
 #Output
