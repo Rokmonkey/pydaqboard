@@ -1,0 +1,67 @@
+#How to setup, run, and analyze a scan
+
+The following tutorial will cover running a complete scan on channel 0.  A copy of the script is included in the examples folder.  It is aimed at those who have a basic understanding of python, so brush up a little if something doesn't make sense.  
+
+
+= Steps =
+
+Setting up a scan on the daq device can be tedious and a little confusing at first, however if you have set up one before, you need only notice the syntax changes when using Python.
+
+  # Initialize the Device
+  # Setup the scan configuration
+  # Setup the scan rate and transfer buffer
+  # Setup trigger events
+  # Arm and trigger the acquisition
+  # Disarm and evaluate the results
+
+==Initialize the Device==
+
+The first thing you need to do is to create a device object that you wish to perform the scan with.  This is done in two simple lines:
+
+{{{
+import daqX
+
+dev = daqX.daqDevice('DaqBoard2K0')
+}}}
+
+Import daqX.py and turn the device on. 'DaqBoard2K0' is the name of the device installed on the computer, yours may be different, use the GetDeviceList() function to see the names of the devices installed on your own computer.
+
+And you are done.  You're device is online and ready for configuration.
+
+==Setup the scan configuration==
+
+Setting up the scan configuration is simple to script, however making sure you have the correct flags, gains, channel groups setup correctly is very device specific and if you are getting error messages through a pop-up menu rather than through the Python shell, look up the error code and check if your setup is correct.
+
+For the purpose of this example, a scan will be configured for channel 0, across the full -10.0 to +10.0 range of the DaqBoard2000.  Best thing to do after initializing is to setup those variables like so:
+
+{{{
+channels = [0]
+gains = ['DgainX1']
+flags = ['DafBipolar']
+scans = 10
+}}}
+
+channels, gains and flags must be passed as lists even if you are using one variable.  They are passed to the library as arrays and will get very angry if not done so.
+
+So what we have done here is defined the channels we want as just channel 0.  We are using a gain of 'DgainX1' and a flag of 'DafBipolar' which sums up to, no gain at all, going both positive and negative.  Bipolar is defined as a range from -maxVolt to +maxVolt, and with a gain of X1 on a DaqBoard2000 such as in this example it is a range from -10.0V to +10.0V.  
+
+We also defined a variable scans here.  It is used later on to help configure the size of the buffer where the scan will get added too.  It's mentioned here to keep the scan configuration variables together.
+
+Generally, before you configure the scan, it is common practice to setup the Acquisition mode like so:
+
+{{{
+acqmode = 'DaamNShot'
+dev.AdcSetAcq(acqmode, postTrigCount = scans)
+}}}
+
+Here we set the acquisition mode to 'DaamNShot' which basically runs the number of preTrigScans, triggers the full scan, then scans the number of postTrigScans, and disarms the acquistion.  For simplicities sake, our scan will be just 10 postTrigScans as you see here.
+
+Now once the acquisition mode is set you can setup the scan configuration like so:
+
+{{{
+dev.AdcSetScan(channels, gains, flags)
+}}}
+
+Remember, if you want to run a scan on more than one channel using AdcSetScan, your lists for channels, gains and flags must correspond, where `gains[0]` is the gain key for `channels[0]`, and `flags[0]` is a *list* of flags for `channels[0]`.
+
+And thats that, scan is configured.
