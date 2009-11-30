@@ -65,3 +65,27 @@ dev.AdcSetScan(channels, gains, flags)
 Remember, if you want to run a scan on more than one channel using AdcSetScan, your lists for channels, gains and flags must correspond, where `gains[0]` is the gain key for `channels[0]`, and `flags[0]` is a *list* of flags for `channels[0]`.
 
 And thats that, scan is configured.
+
+==Setup the scan rate and transfer buffer==
+
+Each scan is configured with a sampling rate like so:
+
+{{{
+mode = 'DarmPeriod'
+state = 'DaasPostTrig'
+period = 1000000.0
+
+dev.AdcSetRate(mode, state, period)
+}}}
+
+The function should be self explanatory.  Mode, is a keyword to describe how you will time the scan, in this case 'DarmPeriod' is used to scan using a set period.  'DarmFrequency' is also available, though I have had little luck getting it to be nice.  State indicates the acquisition state the scan rate applies to, either post-trigger or pre-trigger.
+
+Once that is set up, a buffer must be allocated.  This requires more attention in low-level languages like C, but not so for Python.  It will return a list of the values scanned in.  The command takes two arguments, a list of transfer flags, and the number of scans to properly allocate space, in the case of this tutorial that is 10 scans.
+
+{{{
+transMask = ['DatmUpdateSingle','DatmCycleOn']
+
+buf = dev.AdcTransferSetBuffer(transMask, scans)
+}}}
+
+More information regarding the flags is available in the programmers documentation of your Daqboards API shipped with the device.  Here, 'DatmUpdateSingle' updates the buffer each scan, and 'DatmCycleOn' will loop over the buffer if the end of the buffer is reached thus overwriting data, and is terminated when the transfer is stopped or reaches the trigger count defined.
