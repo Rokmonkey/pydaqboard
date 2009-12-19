@@ -50,6 +50,7 @@ class enum():
                 
         return ret
 
+
 #ADC Gain Definitions
 
 DaqAdcGaindict = {
@@ -72,41 +73,41 @@ DaqAdcGaindict = {
 'DgainX32DbkNone'      : 20, #DaqBoard2000 series only
 'DgainX64DbkNone'      : 24, #DaqBoard2000 series only
 
-   # Dbk4 - Filter Mode (jumper selectable) 
-   'Dbk4FilterX1'         : 0,
-   'Dbk4FilterX10'        : 1,
-   'Dbk4FilterX100'       : 2,
-   'Dbk4FilterX1000'      : 3,
-   'Dbk4FilterX2'         : 4,
-   'Dbk4FilterX20'        : 5,
-   'Dbk4FilterX200'       : 6,
-   'Dbk4FilterX2000'      : 7,
-   'Dbk4FilterX4'        : 8,
-   'Dbk4FilterX40'        : 9,
-   'Dbk4FilterX400'       : 10,
-   'Dbk4FilterX4000'      : 11,
-   'Dbk4FilterX8'         : 12,
-   'Dbk4FilterX80'        : 13,
-   'Dbk4FilterX800'       : 14,
-   'Dbk4FilterX8000'      : 15,
+# Dbk4 - Filter Mode (jumper selectable) 
+'Dbk4FilterX1'         : 0,
+'Dbk4FilterX10'        : 1,
+'Dbk4FilterX100'       : 2,
+'Dbk4FilterX1000'      : 3,
+'Dbk4FilterX2'         : 4,
+'Dbk4FilterX20'        : 5,
+'Dbk4FilterX200'       : 6,
+'Dbk4FilterX2000'      : 7,
+'Dbk4FilterX4'        : 8,
+'Dbk4FilterX40'        : 9,
+'Dbk4FilterX400'       : 10,
+'Dbk4FilterX4000'      : 11,
+'Dbk4FilterX8'         : 12,
+'Dbk4FilterX80'        : 13,
+'Dbk4FilterX800'       : 14,
+'Dbk4FilterX8000'      : 15,
 
-   # Dbk4 - Bypass Mode (jumper selectable) 
-   'Dbk4BypassX1_583'     : 0,
-   'Dbk4BypassX15_83'     : 1,
-   'Dbk4BypassX158_3'     : 2,
-   'Dbk4BypassX1583'      : 3,
-   'Dbk4BypassX3_166'     : 4,
-   'Dbk4BypassX31_66'     : 5,
-   'Dbk4BypassX316_6'     : 6,
-   'Dbk4BypassX3166'      : 7,
-   'Dbk4BypassX6_332'     : 8,
-   'Dbk4BypassX63_32'     : 9,
-   'Dbk4BypassX633_2'     : 10,
-   'Dbk4BypassX6332'      : 11,
-   'Dbk4BypassX12_664'    : 12,
-   'Dbk4BypassX126_64'    : 13,
-   'Dbk4BypassX1266_4'    : 14,
-   'Dbk4BypassX12664'     : 15,
+# Dbk4 - Bypass Mode (jumper selectable) 
+'Dbk4BypassX1_583'     : 0,
+'Dbk4BypassX15_83'     : 1,
+'Dbk4BypassX158_3'     : 2,
+'Dbk4BypassX1583'      : 3,
+'Dbk4BypassX3_166'     : 4,
+'Dbk4BypassX31_66'     : 5,
+'Dbk4BypassX316_6'     : 6,
+'Dbk4BypassX3166'      : 7,
+'Dbk4BypassX6_332'     : 8,
+'Dbk4BypassX63_32'     : 9,
+'Dbk4BypassX633_2'     : 10,
+'Dbk4BypassX6332'      : 11,
+'Dbk4BypassX12_664'    : 12,
+'Dbk4BypassX126_64'    : 13,
+'Dbk4BypassX1266_4'    : 14,
+'Dbk4BypassX12664'     : 15,
 
    # Dbk6 
    'Dbk6X1'               : 0,
@@ -620,6 +621,7 @@ DaqHardwareVersiondict = {
     'DaqBook2005'          : 28,
     'WaveBook512A'         : 29,
     'WaveBook516A'         : 30,
+    'PersonalDaq3000'      : 44
 }
                   
 DaqHardwareVersion = enum(DaqHardwareVersiondict.keys(), DaqHardwareVersiondict.values())
@@ -906,3 +908,12 @@ DaqDacDeviceTypedict = {
 }
 
 DaqDacDeviceType = enum(DaqDacDeviceTypedict.keys(), DaqDacDeviceTypedict.values())
+
+DaqHardwareInfodict = {
+    'DhiHardwareVersion':0,
+    'DhiProtocol':1,
+    'DhiADmin':3,
+    'DhiADmax':4
+    }
+
+DaqHardwareInfo = enum(DaqHardwareInfodict.keys(), DaqHardwareInfodict.values())
