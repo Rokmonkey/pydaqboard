@@ -10,6 +10,9 @@ dll = find_library('daqx')
 daq = ct.WinDLL(dll)
 
 class deviceProps(ct.Structure):
+    """
+    This class emulates a C struct for the device properties calls
+    """
     _fields_ = [("deviceType", wt.DWORD),
                 ("basePortAddress", wt.DWORD),
                 ("dmaChannel", wt.DWORD),
@@ -37,6 +40,9 @@ class deviceProps(ct.Structure):
                 ("daMaxFreq", ct.c_float)]
 
 class daqDeviceListT(ct.Structure):
+    """
+    This class emulates a C struct for the device name
+    """
     _fields_ = [("devicename", ct.c_char * 64)]
 
 #Device Initialization Functions
@@ -56,12 +62,12 @@ def GetDeviceList():
     devices = []
     count = GetDeviceCount()
     countpnt = ct.pointer(ct.c_int(count))
-    devlist = (daqDeviceListT*count)()
+    devlist = (daqDeviceListT*count)() #Iterable ctypes array
     
     daq.daqGetDeviceList(devlist, countpnt)
     
     for i in devlist:
-        devices.append(i.devicename)
+        devices.append(i.devicename) #So the function returns a python type
         
     return devices
 
@@ -87,7 +93,7 @@ class DaqError(Exception):
 def FormatError(errNum):
     """Returns the text-string equivalent for the specified error condition code"""
 
-    msg = (ct.c_char*64)()
+    msg = (ct.c_char*64)() #Messages at minimum is 64 characters
 
     daq.daqFormatError(errNum, ct.byref(msg))
 
@@ -98,13 +104,13 @@ def FormatError(errNum):
 class daqDevice():
 
     def __init__(self, deviceName):
-        
+
+        #Turn off the dll error handler to allow for python exceptions
         daq.daqSetDefaultErrorHandler(None)
         self.deviceName = deviceName   
         pdeviceName = ct.c_char_p(deviceName)
         self.handle = daq.daqOpen(pdeviceName)
         self.props = self.GetDeviceProperties()
-        self.err = wt.DWORD(0)
 
     def Online(self):
         """Determines if a device is online"""
@@ -113,7 +119,7 @@ class daqDevice():
         onlinepnt = ct.pointer(online)
         daq.daqOnline(self.handle, onlinepnt)
 
-        return online.value, self.err
+        return online.value
 
     def Close(self):
         """Used to close a device"""
@@ -131,13 +137,19 @@ class daqDevice():
         devProps = deviceProps()
         devicePropspnt = ct.pointer(devProps)
         daq.daqGetDeviceProperties(deviceNamepnt,devicePropspnt)
-        
+
+        #Rather than return a class, device properties are put into
+        # a python dictionary
         for i in dir(devProps):
             if not i.startswith('_'):
                 val = getattr(devProps, i)
                 if i == 'deviceType':
+                    #Hardware version return value is a bitmask
+                    # this pulls the actual version to make life easier
                     val = DaqHardwareVersion.ofValues(int(val))
                 if i == 'protocol':
+                    #Protocol return value from the dll is a bitmask
+                    #pulling the data from the header to make life easier
                     val = DaqProtocol.ofValues(int(val))
                 properties[i]=val
             
@@ -153,7 +165,8 @@ class daqDevice():
 
     def _ErrorHandler(self, retval, func, funcargs):
         """The Default Error Handler for the devices"""
-
+        #If things go south, raise an exception
+        #dll returns 0 for no error
         if retval != 0 or retval == None:
             self.Close()
             raise DaqError(retval)
@@ -268,11 +281,14 @@ class daqDevice():
         chanCount = len(channels)
         gains = DaqAdcGain.ofKeys(gains)
         flags = orFlags(DaqAdcFlag.ofKeys(flags))
+
+        #Making ctypes iterable arrays
         
         chan_array = (wt.DWORD * chanCount)()
         gain_array = (wt.DWORD * chanCount)()
         flag_array = (wt.DWORD * chanCount)()
 
+        #Take the values of a python list and put them in a Ctypes array
         for i in range(chanCount):
             chan_array[i] = channels[i]
         for i in range(chanCount):
@@ -294,6 +310,8 @@ class daqDevice():
         daq.daqAdcSetScan.errcheck = self._ErrorHandler
         
         channels=gains=flags = []
+
+        #Iterable Ctypes array and pointers to them
         chan_array = (wt.DWORD*512)()
         pchan_array = ct.pointer(chan_array)
         gain_array = (wt.DWORD*512)()
@@ -307,6 +325,7 @@ class daqDevice():
         daq.daqAdcSetScan(self.handle, pchan_array, pgain_array, pflag_array,
                             pchanCount)
 
+        #Take a ctypes array and make a list.
         for i in gain_array:
             gains.append(i)
         for i in flag_array:
@@ -314,7 +333,10 @@ class daqDevice():
         for i in chan_array:
             channels.append(i)
 
+        #Go from bitmask to useful words
         gainVals = DaqAdcGain.ofValues(gains)
+        #Not very helpful for flags as they are a bitmask of more than one
+        #flag generally speaking
         flagVals = DaqAdcFlag.ofValues(flags)
 
         vals = {'Channels' : channels, 'Gains' : gainVals,
@@ -336,6 +358,8 @@ class daqDevice():
         daq.daqAdcRd(self.handle, chan, psample, wt.DWORD(gain),
                      flags)
 
+        #Allow values to be converted through one call of the function
+        #Or just return the value from the daqboard
         if convert == None:
             sample = simple.value
         else:
@@ -350,6 +374,7 @@ class daqDevice():
 
         daq.daqAdcRdScan.errcheck = self._ErrorHandler
 
+        #Buffer length is always the number of channels
         bufLength = endChan - startChan + 1
         buf = (wt.WORD * bufLength)()
         pbuf = ct.pointer(buf)
@@ -358,8 +383,10 @@ class daqDevice():
 
         daq.daqAdcRdScan(self.handle, wt.DWORD(startChan), wt.DWORD(endChan),
                          pbuf, wt.DWORD(gain), flags)
-
+        
         vals = []
+        #Convert return values using a function passed to convert
+        #or just return the bit values from the daqboard
         if convert == None:
             for i in buf:
                 vals.append(i)
@@ -378,6 +405,7 @@ class daqDevice():
         daq.daqSetTriggerEvent.errcheck = self._ErrorHandler
 
         trigSource = DaqAdcTriggerSource.ofKeys(trigSource)
+        #trigSensitivity can take None as a parameter
         if trigSensitivity != None:
             trigSensitivity = DaqEnhTrigSensT.ofKeys(trigSensitivity)
         gainCode = DaqAdcGain.ofKeys(gainCode)
@@ -396,7 +424,8 @@ class daqDevice():
         """Configure transfer buffer for acquired data"""
 
         daq.daqAdcTransferSetBuffer.errcheck = self._ErrorHandler
-        
+
+        #Buffer has a length of the number of scans
         buf = (wt.WORD * scanCount)()
         pbuf = ct.pointer(buf)
         transferMask = orFlags(DaqAdcTransferMask.ofKeys(transferMask))
@@ -457,6 +486,8 @@ class daqDevice():
         daq.daqDacWt.errcheck = self._ErrorHandler
 
         deviceType = DaqDacDeviceType.ofKeys(deviceType)
+        #Very specific to the daqboard2k series...should be fixed
+        #Setup so you can just pass a voltage in.
         if dataVal >= 10.0:
             dataVal = 65535
         if dataVal <= -10.0:
