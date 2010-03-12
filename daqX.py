@@ -369,14 +369,14 @@ class daqDevice():
         psample = ct.pointer(sample)
 
         err = daq.daqAdcRd(self.handle, chan, psample, wt.DWORD(gain),
-                     flags[0])
+                     flags)
         if err != 0:
             raise DaqError(err)
 
         #Allow values to be converted through one call of the function
         #Or just return the value from the daqboard
         if convert == None:
-            sample = simple.value
+            sample = sample.value
         else:
             sample = convert(sample.value)
 
