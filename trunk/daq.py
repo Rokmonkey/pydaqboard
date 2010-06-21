@@ -2,8 +2,6 @@ import sys
 import ctypes as ct
 from ctypes import wintypes as wt
 from ctypes.util import find_library
-from daqxh import *
-
 
 #initialize Daqx.dll
 dll = find_library('daqx')
@@ -86,9 +84,13 @@ class DaqError(Exception):
     def __init__(self, errcode):
         self.errcode = errcode
         self.msg = FormatError(errcode)
+        self.args = (self.errcode, self.msg)
 
     def __str__(self):
-        return self.msg
+        return '%i ' % self.errcode + self.msg
+        
+    def __getitem__(self,key):
+        return self.args[key]
 
 def FormatError(errNum):
     """Returns the text-string equivalent for the specified error condition code"""
@@ -133,8 +135,6 @@ class daqDevice():
     def GetDeviceProperties(self):
         """Returns the properties for a specified device"""
 
-        #daq.daqGetDeviceProperties.errcheck = self._ErrorHandler
-
         properties = {}
 
         deviceNamepnt = ct.c_char_p(self.deviceName)
@@ -149,14 +149,6 @@ class daqDevice():
         for i in dir(devProps):
             if not i.startswith('_'):
                 val = getattr(devProps, i)
-                if i == 'deviceType':
-                    #Hardware version return value is a bitmask
-                    # this pulls the actual version to make life easier
-                    val = DaqHardwareVersion.ofValues(int(val))
-                if i == 'protocol':
-                    #Protocol return value from the dll is a bitmask
-                    #pulling the data from the header to make life easier
-                    val = DaqProtocol.ofValues(int(val))
                 properties[i]=val
 
         return properties
@@ -215,8 +207,6 @@ class daqDevice():
     def WaitForEvent(self, event):
         """Waits on a specific event to occur on the specified event"""
 
-        event = DaqWaitMode.ofKeys(event)
-
         err = daq.daqWaitForEvent(self.handle, event)
 
         if err != 0:
@@ -227,22 +217,56 @@ class daqDevice():
     def AdcSetAcq(self, mode, preTrigCount = 0, postTrigCount = 0):
         """Configures the acquisition mode and the pre- and post-trigger scan durations"""
 
-        mode = DaqAdcAcqMode.ofKeys(mode)
-        preTrigCount = wt.DWORD(preTrigCount)
-        postTrigCount = wt.DWORD(postTrigCount)
+        if preTrigCount != None:
+            preTrigCount = wt.DWORD(preTrigCount)
+        if postTrigCount != None:
+            postTrigCount = wt.DWORD(postTrigCount)
 
         err = daq.daqAdcSetAcq(self.handle, mode, preTrigCount, postTrigCount)
 
         if err != 0:
             raise DaqError(err)
 
+    def AdcSetTrig(self, triggerSource, rising, level, hysteresis, channel):
+        """Configures the device for enhanced triggering"""
+
+        level = wt.WORD(level)
+        hysteresis = wt.DWORD(hysteresis)
+        channel = wt.DWORD(channel)
+
+        err = daq.daqAdcSetTrig(self.handle, triggerSource, rising, level,
+                hysteresis, channel)
+
+        if err != 0:
+            raise DaqError(err)
+
+    def AdcSoftTrig(self):
+        """Used to send a software trigger command to the device"""
+
+        err = daq.daqAdcSoftTrig(self.handle)
+
+        if err != 0:
+            raise DaqError(err)
+
+    #ADC Direct-to-Disk
+
+    def AdcSetDiskFile(self, filename, openMode, preWrite):
+        """Sets a destination file for ADC data transfers.  ADC direct-to-disk
+        transfers will be directed to the specified disk file"""
+
+        preWrite = wt.DWORD(preWrite)
+
+        err = daq.daqAdcSetDiskFile(self.handle, filename, openMode, preWrite)
+
+        if err != 0:
+            raise DaqError(err)
+
+
     #ADC Rate Functions
 
     def AdcSetRate(self, mode, state, reqValue):
         """Configures the acquisition scan rate"""
 
-        mode = DaqAdcRateMode.ofKeys(mode)
-        state = DaqAdcAcqState.ofKeys(state)
         reqValue = ct.c_float(reqValue)
         actValue = ct.c_float(0.0)
         pactValue = ct.pointer(actValue)
@@ -262,7 +286,6 @@ class daqDevice():
         chan = ct.c_int(chan)
         info = ct.c_float(0)
         pinfo = ct.pointer(info)
-        whichInfo = DaqInfo.ofKeys(whichInfo)
         err = daq.daqGetInfo(self.handle, chan, whichInfo, pinfo)
 
         if err != 0:
@@ -275,7 +298,6 @@ class daqDevice():
 
         info = ct.c_float(0.0)
         pinfo = ct.pointer(info)
-        whichInfo = DaqHardwareInfo.ofKeys(whichInfo)
         err = daq.daqGetHardwareInfo(self.handle, whichInfo, pinfo)
 
         if err != 0:
@@ -289,8 +311,6 @@ class daqDevice():
         """Configures an aquisition scan group consisting of multiple channels"""
 
         chanCount = len(channels)
-        gains = DaqAdcGain.ofKeys(gains)
-        flags = orFlags(DaqAdcFlag.ofKeys(flags))
         if type(flags) != list:
             flags = [flags]
 
@@ -321,8 +341,6 @@ class daqDevice():
         """Reads the current scan group, which consists of all configured\
             channels"""
 
-        #daq.daqAdcSetScan.errcheck = self._ErrorHandler
-
         channels=gains=flags = []
 
         #Iterable Ctypes array and pointers to them
@@ -348,23 +366,44 @@ class daqDevice():
         for i in chan_array:
             channels.append(i)
 
-        #Go from bitmask to useful words
-        gainVals = DaqAdcGain.ofValues(gains)
-        #Not very helpful for flags as they are a bitmask of more than one
-        #flag generally speaking
-        #flagVals = DaqAdcFlag.ofValues(flags)
-
-        vals = {'Channels' : channels, 'Gains' : gainVals,
+        vals = {'Channels' : channels, 'Gains' : gains,
                 'Flags' : flags, 'Channelcount' : chanCount}
         return vals
+        
+    def AdcSetFreq(self, freq):
+        """Calculates and sets the frequency of the interal scan pacer clock of 
+            the device using the frequency specified in Hz
+        """
+        
+        freq = ct.c_float(freq)
+        
+        err = daq.daqAdcSetFreq(self.handle, freq)
+        
+        if err != 0:
+            raise DaqError(err)
+            
+    def AdcSetRate(self, mode, state, reqValue):
+        """Configures the acquisition scan rate using the selected device's
+            built-in acquisition pacer clock.
+        """
+        
+        reqValue = ct.c_float(reqValue)
+        actualValue = ct.c_float(0.0)
+        pactualValue = ct.pointer(actualValue)
+        
+        err = daq.daqAdcSetRate(self.handle, mode, state, reqValue, pactualValue)
+        
+        if err != 0:
+            raise DaqError(err)
+            
+        return actualValue.value
+        
 
     #One-Step ADC functions
 
     def AdcRd(self, chan, gain, flags, convert = None):
         """Takes a single reading from the given local A/D channel using a software trigger"""
 
-        flags = orFlags(DaqAdcFlag.ofKeys(flags))
-        gain = DaqAdcGain.ofKeys(gain)
         sample = ct.c_long(0)
         psample = ct.pointer(sample)
 
@@ -391,8 +430,6 @@ class daqDevice():
         bufLength = endChan - startChan + 1
         buf = (wt.WORD * bufLength)()
         pbuf = ct.pointer(buf)
-        flags = orFlags(DaqAdcFlag.ofKeys(flags))
-        gain = DaqAdcGain.ofKeys(gain)
 
         err = daq.daqAdcRdScan(self.handle, wt.DWORD(startChan), wt.DWORD(endChan),
                          pbuf, wt.DWORD(gain), flags[0])
@@ -404,11 +441,9 @@ class daqDevice():
         #Convert return values using a function passed to convert
         #or just return the bit values from the daqboard
         if convert == None:
-            for i in buf:
-                vals.append(i)
+            vals = list(buf)
         else:
-            for i in buf:
-                vals.append(convert(i))
+            vals = map(convert, buf)
 
         return vals
 
@@ -418,31 +453,49 @@ class daqDevice():
                         flags, channelType, level, variance, event):
         """Sets an acquisition trigger start event or stop event"""
 
-        trigSource = DaqAdcTriggerSource.ofKeys(trigSource)
-        #trigSensitivity can take None as a parameter
-        if trigSensitivity != None:
-            trigSensitivity = DaqEnhTrigSensT.ofKeys(trigSensitivity)
-        gainCode = DaqAdcGain.ofKeys(gainCode)
-        flags = orFlags(DaqAdcFlag.ofKeys(flags))
-        channelType = DaqChannelType.ofKeys(channelType)
-        event = DaqTriggerEvent.ofKeys(event)
+        if level != None:
+            level = ct.c_float(level)
+        
+        if variance != None:
+            variance = ct.c_float(variance)
 
         err = daq.daqSetTriggerEvent(self.handle, trigSource, trigSensitivity,
-                               channel, wt.DWORD(gainCode[0]), flags[0], channelType,
-                               ct.c_float(level), ct.c_float(variance), event)
+                               channel, wt.DWORD(gainCode), flags, channelType,
+                               level, variance, event)
 
         if err != 0:
             raise DaqError(err)
 
     #ADC Transfer Buffer
+    def AdcTransferBufData(self, scanCount, bufMask):
+        """Requests a transfer of scanCount scans from the driver allocated buffer
+            to the linear data retrieval buffer (buf)"""
 
-    def AdcTransferSetBuffer(self, transferMask, scanCount, numChans = 1):
+        buf = (wt.WORD * scanCount)()
+        pbuf = ct.pointer(buf)
+
+        scanCount = wt.DWORD(scanCount)
+
+        retCount = wt.DWORD(0)
+        pretCount = ct.pointer(retCount)
+
+        err = daq.daqAdcTransferBufData(self.handle, pbuf, scanCount, bufMask, pretCount)
+
+        if err != 0:
+            raise DaqError(err)
+
+        return list(buf), retCount.value
+
+    def AdcTransferSetBuffer(self, transferMask, scanCount, buf = 1):
         """Configure transfer buffer for acquired data"""
 
         #Buffer has a length of the number of scans
-        buf = (wt.WORD * (numChans * scanCount))()
-        pbuf = ct.pointer(buf)
-        transferMask = orFlags(DaqAdcTransferMask.ofKeys(transferMask))
+        if buf:
+            buf = (wt.WORD * scanCount)()
+            pbuf = ct.pointer(buf)
+        else:
+            pbuf = None
+
         scanCount = wt.DWORD(scanCount)
         err = daq.daqAdcTransferSetBuffer(self.handle, pbuf, scanCount, transferMask)
 
@@ -501,7 +554,6 @@ class daqDevice():
     def DacWt(self, deviceType, chan, dataVal):
         """Sets the output value of a local or expansion DAC channel"""
 
-        deviceType = DaqDacDeviceType.ofKeys(deviceType)
         #Very specific to the daqboard2k series...should be fixed
         #Setup so you can just pass a voltage in.
         if dataVal >= 10.0:

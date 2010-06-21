@@ -1,9 +1,10 @@
-import daqX
+from daq import daqDevice
+from daqh import DgainX1, DafBipolar,DafUnsigned
 
-dev = daqX.daqDevice('DaqBoard2K0')
+dev = daqDevice('DaqBoard2K0')
 chan = 0
-gain = 'DgainX1'
-flags = ['DafBipolar','DafUnsigned']
+gain = DgainX1
+flags = DafBipolar|DafUnsigned
 
 read = dev.AdcRd(chan, gain, flags)
 read = (20.0/2**16)*read -10
