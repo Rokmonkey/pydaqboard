@@ -1,4 +1,7 @@
-import daqX
+from daq import daqDevice
+from daqh import DgainX4, DafBipolar, DaamNShot, DarmFrequency, DaasPostTrig, \
+            DatmUpdateSingle, DatmCycleOff, DatsImmediate, DaqTypeAnalogLocal, \
+            DaqStartEvent, DatsScanCount, DaqStopEvent, DaafAcqActive
 
 def volt_to_strain(volts):
     strains = range(len(volts))
@@ -24,12 +27,12 @@ def strain_to_curvature(strainlist):
 
 dev = daqX.daqDevice('DaqBoard2K0')
 channels = [0,1,2,3,4]
-gains = ['DgainX4','DgainX4','DgainX4','DgainX4','DgainX4']
-flags = [['DafBipolar'],['DafBipolar'],['DafBipolar'],['DafBipolar'],['DafBipolar']]
+gains = [DgainX4,DgainX4,DgainX4,DgainX4,DgainX4]
+flags = [DafBipolar,DafBipolar,DafBipolar,DafBipolar,DafBipolar]
 scans = 100
 
 print 'Attempting to set acquistion mode....'
-acqmode = 'DaamNShot'
+acqmode = DaamNShot
 dev.AdcSetAcq(acqmode, postTrigCount = scans)
 
 print('Attempting Scan...')
@@ -38,8 +41,8 @@ dev.AdcSetScan(channels, gains, flags)
 
 print('Scan Set')
 
-mode = 'DarmFrequency'
-state = 'DaasPostTrig'
+mode = DarmFrequency
+state = DaasPostTrig
 freq = 100.0 #1000 Hertz
 
 print('Attempting to set rate...')
@@ -48,17 +51,17 @@ dev.AdcSetRate(mode, state, freq)
 
 print 'Attempting to Set Transfer Buffer...'
 
-transMask = ['DatmUpdateSingle','DatmCycleOff']
+transMask = [DatmUpdateSingle,DatmCycleOff]
 
 buf = dev.AdcTransferSetBuffer(transMask, scans, len(channels))
 
 print 'Buffer Set, Setting Trigger Events...'
 
-dev.SetTriggerEvent('DatsImmediate',None, 0, gains, flags, 'DaqTypeAnalogLocal', 0, 0, 'DaqStartEvent')
+dev.SetTriggerEvent(DatsImmediate,None, 0, gains, flags, DaqTypeAnalogLocal, 0, 0, DaqStartEvent')
 
 print 'Start set, Stop Trigger...'
 
-dev.SetTriggerEvent('DatsScanCount',None, 0, gains, flags, 'DaqTypeAnalogLocal', 0, 0, 'DaqStopEvent')
+dev.SetTriggerEvent(DatsScanCount,None, 0, gains, flags, DaqTypeAnalogLocal, 0, 0, DaqStopEvent')
 
 print 'Trigger set'
 
@@ -76,7 +79,7 @@ while True:
     stat = dev.AdcTransferGetStat()
     retCount = stat['retCount']
     active = stat['active']
-    if not (active & 0x01):
+    if not (active & DaafAcqActive):
         break
 
 dev.AdcDisarm()

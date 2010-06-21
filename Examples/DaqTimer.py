@@ -1,4 +1,5 @@
-from daqX import daqDevice
+from daq import daqDevice
+from daqh import DgainX1, DafBipolar, DddtLocal
 import time
 
 """
@@ -15,13 +16,13 @@ runtime = 10
 
 #Input
 inputChan = 0
-inputGain = 'DgainX1' #No gain
-inputFlags = ['DafBipolar'] # -10.0 to 10.0 with no gain
+inputGain = DgainX1 #No gain
+inputFlags = DafBipolar # -10.0 to 10.0 with no gain
 inputFreq = 2 #Twice per second
 
 #Output
 outChan = 0
-outType = 'DddtLocal' #Always use, default
+outType = DddtLocal #Always use, default
 outData = 3.3 #In Volts
 outSwitch = True
 outFreq = 0.5 
