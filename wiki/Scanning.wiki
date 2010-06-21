@@ -1,30 +1,10 @@
-#How to setup, run, and analyze a scan
+from daq import daqDevice
+import daqh #Used later on
 
-The following tutorial will cover running a complete scan on channel 0.  A copy of the script is included in the examples folder.  It is aimed at those who have a basic understanding of python, so brush up a little if something doesn't make sense.  
-
-
-= Steps =
-
-Setting up a scan on the daq device can be tedious and a little confusing at first, however if you have set up one before, you need only notice the syntax changes when using Python.
-
-  # Initialize the Device
-  # Setup the scan configuration
-  # Setup the scan rate and transfer buffer
-  # Setup trigger events
-  # Arm and trigger the acquisition
-  # Disarm and evaluate the results
-
-==Initialize the Device==
-
-The first thing you need to do is to create a device object that you wish to perform the scan with.  This is done in two simple lines:
-
-{{{
-import daqX
-
-dev = daqX.daqDevice('DaqBoard2K0')
+dev = daqDevice('DaqBoard2K0')
 }}}
 
-Import daqX.py and turn the device on. 'DaqBoard2K0' is the name of the device installed on the computer, yours may be different, use the GetDeviceList() function to see the names of the devices installed on your own computer.
+Import daq.py and turn the device on. 'DaqBoard2K0' is the name of the device installed on the computer, yours may be different, use the GetDeviceList() function to see the names of the devices installed on your own computer.
 
 And you are done.  You're device is online and ready for configuration.
 
@@ -36,8 +16,8 @@ For the purpose of this example, a scan will be configured for channel 0, across
 
 {{{
 channels = [0]
-gains = ['DgainX1']
-flags = ['DafBipolar']
+gains = [daqh.DgainX1]
+flags = [daqh.DafBipolar]
 scans = 10
 }}}
 
@@ -50,7 +30,7 @@ We also defined a variable scans here.  It is used later on to help configure th
 Generally, before you configure the scan, it is common practice to setup the Acquisition mode like so:
 
 {{{
-acqmode = 'DaamNShot'
+acqmode = daqhDaamNShot
 dev.AdcSetAcq(acqmode, postTrigCount = scans)
 }}}
 
@@ -62,7 +42,7 @@ Now once the acquisition mode is set you can setup the scan configuration like s
 dev.AdcSetScan(channels, gains, flags)
 }}}
 
-Remember, if you want to run a scan on more than one channel using AdcSetScan, your lists for channels, gains and flags must correspond, where `gains[0]` is the gain key for `channels[0]`, and `flags[0]` is a *list* of flags for `channels[0]`.
+Remember, if you want to run a scan on more than one channel using AdcSetScan, your lists for channels, gains and flags must correspond, where `gains[0]` is the gain key for `channels[0]`, and `flags[0]` is all of the flags for `channels[0]` all `|` together.
 
 And thats that, scan is configured.
 
@@ -71,8 +51,8 @@ And thats that, scan is configured.
 Each scan is configured with a sampling rate like so:
 
 {{{
-mode = 'DarmPeriod'
-state = 'DaasPostTrig'
+mode = daqh.DarmPeriod
+state = daqh.DaasPostTrig
 period = 1000000.0
 
 dev.AdcSetRate(mode, state, period)
@@ -83,7 +63,7 @@ The function should be self explanatory.  Mode, is a keyword to describe how you
 Once that is set up, a buffer must be allocated.  This requires more attention in low-level languages like C, but not so for Python.  It will return a list of the values scanned in.  The command takes two arguments, a list of transfer flags, and the number of scans to properly allocate space, in the case of this tutorial that is 10 scans.
 
 {{{
-transMask = ['DatmUpdateSingle','DatmCycleOn']
+transMask = [daqh.DatmUpdateSingle,daqh.DatmCycleOn]
 
 buf = dev.AdcTransferSetBuffer(transMask, scans)
 }}}
@@ -95,9 +75,9 @@ More information regarding the flags is available in the programmers documentati
 Once the scan itself has been configured, next, the start and stop trigger events have to be configured.
 
 {{{
-dev.SetTriggerEvent('DatsImmediate',None, 0, gains, flags, 'DaqTypeAnalogLocal', 0, 0, 'DaqStartEvent')
+dev.SetTriggerEvent(daqh.DatsImmediate,None, 0, gains, flags, daqh.DaqTypeAnalogLocal, 0, 0, daqh.DaqStartEvent)
 
-dev.SetTriggerEvent('DatsScanCount',None, 0, gains, flags, 'DaqTypeAnalogLocal', 0, 0, 'DaqStopEvent')
+dev.SetTriggerEvent(daqh.DatsScanCount,None, 0, gains, flags, daqh.DaqTypeAnalogLocal, 0, 0, daqh..DaqStopEvent)
 }}}
 
 daqx.SetTriggerEvent() has a large number of arguments, however, for most applications this isn't needed.  Here, we are using software triggers to make things simple.  The first trigger event is the start event and is configured to trigger as soon as the transfer is armed, with the 'DatsImmediate' flag.
@@ -114,13 +94,13 @@ dev.AdcArm()
 while True:
     stat = dev.AdcTransferGetStat()
     active = stat['active']
-    if not (active & 0x01):
+    if not (active & daqh.DaafAcqActive):
         break
 }}}
 
 Here we do a little bit of actual coding and not just simple configuration.  We start the transfer with dev.AdcTransferStart() to prepare the transfer, then arm it with dev.AdcArm() which executes the trigger event and begins the scan.  As that continues to work we enter the main loop.
 
-Without this while loop the program would arm the transfer then immediately disarm it.  We don't want that, so what occurs here is we request the status of the transfer occurring.  dev.AdcTransferGetStat() returns a dictionary of the flags describing the current transfer status.  To check the flag, short hand was used. 0x01 is the hex code for an active transfer, what we check here is whether or not that hex code is in the bit mask describing the current transfer.  If the transfer is no longer active we can break the loop and disarm the transfer.
+Without this while loop the program would arm the transfer then immediately disarm it.  We don't want that, so what occurs here is we request the status of the transfer occurring.  dev.AdcTransferGetStat() returns a dictionary of the flags describing the current transfer status.  To check the flag, we check the `DaafAcqActive` flag which is no longer set if the scan has ended.  If the transfer is no longer active we can break the loop and disarm the transfer.
 
 ==Disarm and evaluate the results==
 
@@ -140,6 +120,6 @@ for i in buf:
 dev.Close()
 }}}
 
-Remember, we defined a variable `buf` where the data scanned is returned to. The buffer is returned as a list, so it can be iterated across as we do here. dev.ADConvert() is a simple conversion function within the daqx module.  It is created for a very specific type of scan, a BiPolar, 1x Gain on a Daqboard2000.  In normal applications it is much more proper to write your own function specific to the scan configured.
+Remember, we defined a variable `buf` where the data scanned is returned to. The buffer is returned as a list, so it can be iterated across as we do here. dev.ADConvert() is a simple conversion function within the daq module.  It is created for a very specific type of scan, a BiPolar, 1x Gain on a Daqboard2000.  In normal applications it is much more proper to write your own function specific to the scan configured.
 
 Once the data is evaluated, remember to close the device to eliminate any issues that may arise from a device being brought online more than once.
