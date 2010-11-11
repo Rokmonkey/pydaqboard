@@ -2,6 +2,7 @@ import sys
 import ctypes as ct
 from ctypes import wintypes as wt
 from ctypes.util import find_library
+from daqh import *
 
 #initialize Daqx.dll
 dll = find_library('daqx')
@@ -11,27 +12,27 @@ class deviceProps(ct.Structure):
     """
     This class emulates a C struct for the device properties calls
     """
-    _fields_ = [("deviceType", wt.DWORD),
-                ("basePortAddress", wt.DWORD),
-                ("dmaChannel", wt.DWORD),
-                ("socket", wt.DWORD),
-                ("interruptLevel", wt.DWORD),
-                ("protocol", wt.DWORD),
+    _fields_ = [("deviceType", ct.c_ulong),
+                ("basePortAddress", ct.c_ulong),
+                ("dmaChannel", ct.c_ulong),
+                ("socket", ct.c_ulong),
+                ("interruptLevel", ct.c_ulong),
+                ("protocol", ct.c_ulong),
                 ("alias", ct.c_char*64),
-                ("maxAdChannels", wt.DWORD),
-                ("maxDaChannels", wt.DWORD),
-                ("maxDigInputBits", wt.DWORD),
-                ("maxDigOutputBits", wt.DWORD),
-                ("maxCtrChannels", wt.DWORD),
-                ("mainUnitAdChannels", wt.DWORD),
-                ("mainUnitDaChannels", wt.DWORD),
-                ("mainUnitDigInputBits", wt.DWORD),
-                ("mainUnitDigOutputBits", wt.DWORD),
-                ("mainUnitCtrChannels", wt.DWORD),
-                ("adFifoSize", wt.DWORD),
-                ("daFifoSize", wt.DWORD),
-                ("adResolution", wt.DWORD),
-                ("daResolution", wt.DWORD),
+                ("maxAdChannels", ct.c_ulong),
+                ("maxDaChannels", ct.c_ulong),
+                ("maxDigInputBits", ct.c_ulong),
+                ("maxDigOutputBits", ct.c_ulong),
+                ("maxCtrChannels", ct.c_ulong),
+                ("mainUnitAdChannels", ct.c_ulong),
+                ("mainUnitDaChannels", ct.c_ulong),
+                ("mainUnitDigInputBits", ct.c_ulong),
+                ("mainUnitDigOutputBits", ct.c_ulong),
+                ("mainUnitCtrChannels", ct.c_ulong),
+                ("adFifoSize", ct.c_ulong),
+                ("daFifoSize", ct.c_ulong),
+                ("adResolution", ct.c_ulong),
+                ("daResolution", ct.c_ulong),
                 ("adMinFreq", ct.c_float),
                 ("adMaxFreq", ct.c_float),
                 ("daMinFreq", ct.c_float),
@@ -78,6 +79,27 @@ def GetDriverVersion():
 
     return version.value
 
+def GetDeviceProperties(deviceName):
+    """Returns the properties for a specified device"""
+
+    properties = {}
+
+    deviceNamepnt = ct.c_char_p(deviceName)
+    devProps = deviceProps()
+    devicePropspnt = ct.pointer(devProps)
+    err = daq.daqGetDeviceProperties(deviceNamepnt,devicePropspnt)
+    if err != 0:
+        raise DaqError(err)
+
+    #Rather than return a class, device properties are put into
+    # a python dictionary
+    for i in dir(devProps):
+        if not i.startswith('_'):
+            val = getattr(devProps, i)
+            properties[i]=val
+
+    return properties
+
 #Error Handling
 class DaqError(Exception):
 
@@ -88,7 +110,7 @@ class DaqError(Exception):
 
     def __str__(self):
         return '%i ' % self.errcode + self.msg
-        
+
     def __getitem__(self,key):
         return self.args[key]
 
@@ -337,26 +359,26 @@ class daqDevice():
         if err != 0:
             raise DaqError(err)
 
-    def AdcGetScan(self):
+    def AdcGetScan(self, num_channels):
         """Reads the current scan group, which consists of all configured\
             channels"""
 
-        channels=gains=flags = []
+        channels,gains,flags = [],[],[]
 
         #Iterable Ctypes array and pointers to them
-        chan_array = (wt.DWORD*512)()
+        chan_array = (wt.DWORD*num_channels)()
         pchan_array = ct.pointer(chan_array)
-        gain_array = (wt.DWORD*512)()
+        gain_array = (wt.DWORD*num_channels)()
         pgain_array = ct.pointer(gain_array)
-        flag_array = (wt.DWORD*512)()
+        flag_array = (wt.DWORD*num_channels)()
         pflag_array = ct.pointer(flag_array)
 
-        chanCount = ct.c_int(0)
+        chanCount = wt.DWORD(num_channels)
         pchanCount = ct.pointer(chanCount)
 
         err = daq.daqAdcSetScan(self.handle, pchan_array, pgain_array, pflag_array, pchanCount)
         if err != 0:
-            self._ErrorHandler(err)
+            raise DaqError(err)
 
         #Take a ctypes array and make a list.
         for i in gain_array:
@@ -369,35 +391,35 @@ class daqDevice():
         vals = {'Channels' : channels, 'Gains' : gains,
                 'Flags' : flags, 'Channelcount' : chanCount}
         return vals
-        
+
     def AdcSetFreq(self, freq):
-        """Calculates and sets the frequency of the interal scan pacer clock of 
+        """Calculates and sets the frequency of the interal scan pacer clock of
             the device using the frequency specified in Hz
         """
-        
+
         freq = ct.c_float(freq)
-        
+
         err = daq.daqAdcSetFreq(self.handle, freq)
-        
+
         if err != 0:
             raise DaqError(err)
-            
+
     def AdcSetRate(self, mode, state, reqValue):
         """Configures the acquisition scan rate using the selected device's
             built-in acquisition pacer clock.
         """
-        
+
         reqValue = ct.c_float(reqValue)
         actualValue = ct.c_float(0.0)
         pactualValue = ct.pointer(actualValue)
-        
+
         err = daq.daqAdcSetRate(self.handle, mode, state, reqValue, pactualValue)
-        
+
         if err != 0:
             raise DaqError(err)
-            
+
         return actualValue.value
-        
+
 
     #One-Step ADC functions
 
@@ -455,23 +477,23 @@ class daqDevice():
 
         if level != None:
             level = ct.c_float(level)
-        
+
         if variance != None:
             variance = ct.c_float(variance)
 
         err = daq.daqSetTriggerEvent(self.handle, trigSource, trigSensitivity,
-                               channel, wt.DWORD(gainCode), flags, channelType,
+                               wt.DWORD(channel), wt.DWORD(gainCode), wt.DWORD(flags), channelType,
                                level, variance, event)
 
         if err != 0:
             raise DaqError(err)
 
     #ADC Transfer Buffer
-    def AdcTransferBufData(self, scanCount, bufMask):
+    def AdcTransferBufData(self, scanCount, chanCount, bufMask):
         """Requests a transfer of scanCount scans from the driver allocated buffer
             to the linear data retrieval buffer (buf)"""
 
-        buf = (wt.WORD * scanCount)()
+        buf = (wt.WORD * (scanCount*chanCount))()
         pbuf = ct.pointer(buf)
 
         scanCount = wt.DWORD(scanCount)
@@ -529,7 +551,11 @@ class daqDevice():
         if err != 0:
             raise DaqError(err)
 
-        return {'active':active.value, 'retCount':retCount.value}
+        a = active.value
+        return {'active':a & DaafAcqActive,
+                'triggered':a & DaafAcqTriggered,
+                'transfer': a & DaafTransferActive,
+                'retCount':retCount.value}
 
     #ADC Acquisition Control
 
@@ -571,3 +597,6 @@ class daqDevice():
 if __name__ == '__main__':
     print GetDeviceList()
     dev = daqDevice('DaqBoard2K0')
+    dev.AdcSetScan([0,1],[DgainX1,DgainX64],[DafBipolar,DafSingleEnded])
+    for k,v in dev.AdcGetScan(2):
+        print k, v
