@@ -25,10 +25,10 @@ def strain_to_curvature(strainlist):
 
     return curvaturelist
 
-dev = daqX.daqDevice('DaqBoard2K0')
-channels = [0,1,2,3,4]
-gains = [DgainX4,DgainX4,DgainX4,DgainX4,DgainX4]
-flags = [DafBipolar,DafBipolar,DafBipolar,DafBipolar,DafBipolar]
+dev = daqDevice('DaqBoard2K0')
+channels = [0]
+gains = [DgainX4]
+flags = [DafBipolar]
 scans = 100
 
 print 'Attempting to set acquistion mode....'
@@ -51,17 +51,17 @@ dev.AdcSetRate(mode, state, freq)
 
 print 'Attempting to Set Transfer Buffer...'
 
-transMask = [DatmUpdateSingle,DatmCycleOff]
+transMask = DatmUpdateSingle|DatmCycleOff
 
 buf = dev.AdcTransferSetBuffer(transMask, scans, len(channels))
 
 print 'Buffer Set, Setting Trigger Events...'
 
-dev.SetTriggerEvent(DatsImmediate,None, 0, gains, flags, DaqTypeAnalogLocal, 0, 0, DaqStartEvent')
+dev.SetTriggerEvent(DatsImmediate,None, 0, gains[0], flags[0], DaqTypeAnalogLocal, 0, 0, DaqStartEvent)
 
 print 'Start set, Stop Trigger...'
 
-dev.SetTriggerEvent(DatsScanCount,None, 0, gains, flags, DaqTypeAnalogLocal, 0, 0, DaqStopEvent')
+dev.SetTriggerEvent(DatsScanCount,None, 0, gains[0], flags[0], DaqTypeAnalogLocal, 0, 0, DaqStopEvent)
 
 print 'Trigger set'
 
